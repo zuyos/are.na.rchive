@@ -28,7 +28,7 @@ Download all images from any public channel on Are.na.
    ARENA_CHANNEL_SLUG=your-default-channel-slug
    ```
 
-   Replace `your-default-channel-slug` with the slug of the Are.na channel you want to download (e.g., `red-9fu1pjlnims`).
+   Replace `your-default-channel-slug` with the slug of the Are.na channel you want to download (e.g., `arena-influences`).
 
 ## Usage
 
@@ -59,7 +59,7 @@ The script will download all images from the specified Are.na channel and save t
 1. Set up `.env`:
 
    ```
-   ARENA_CHANNEL_SLUG=red-9fu1pjlnims
+   ARENA_CHANNEL_SLUG=arena-influences
    ```
 
 2. Run the script:
@@ -74,7 +74,7 @@ The script will download all images from the specified Are.na channel and save t
 
 4. To download from another channel:
    ```bash
-   npm run download --channel=blue-2k1abcxyz
+   npm run download --channel=arena-influences
    ```
 
 ## Troubleshooting
