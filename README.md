@@ -29,14 +29,6 @@ Download all images from any Are.na channel (public or private).
    npm install
    ```
 
-3. (Optional) Create a `.env` file in the root of the project to specify a default Are.na channel slug:
-
-   ```
-   ARENA_CHANNEL_SLUG=your-default-channel-slug
-   ```
-
-   Replace `your-default-channel-slug` with the slug of the Are.na channel you want to download (e.g., `arena-influences`).
-
 ## Authentication
 
 ### Public Channels
@@ -66,23 +58,19 @@ ARENA_ACCESS_TOKEN=your-access-token-here
 
 ## Usage
 
-### Run the Script with Default Channel
-
-To download images from the default channel specified in `.env`:
+Run the download command:
 
 ```bash
 npm run download
 ```
 
-### Run the Script with a Custom Channel
+You'll be prompted to enter an Are.na channel slug:
 
-To override the default channel and download images from another channel:
-
-```bash
-npm run download --channel=custom-channel-slug
+```
+? Enter Are.na channel slug: ›
 ```
 
-Replace `custom-channel-slug` with the slug of the desired Are.na channel.
+Enter the channel slug (e.g., `arena-influences`). You can find this in the channel's URL: `https://www.are.na/username/channel-slug`
 
 ### Output
 
@@ -90,26 +78,33 @@ The script will download all images from the specified Are.na channel and save t
 
 ## Example
 
-1. Set up `.env`:
-
-   ```
-   ARENA_CHANNEL_SLUG=arena-influences
-   ```
-
-2. Run the script:
+1. Run the script:
 
    ```bash
    npm run download
    ```
 
+2. Enter a channel slug when prompted:
+
+   ```
+   ? Enter Are.na channel slug: › arena-influences
+   ```
+
 3. Output:
 
-   - Images will be saved in the `images/` directory.
-
-4. To download from another channel:
-   ```bash
-   npm run download --channel=arena-influences
    ```
+   Starting download from channel: arena-influences
+
+   Fetching channel contents...
+   Fetching page 1...
+   Found 25 images
+
+   Downloading |████████████████| 100% | 25/25 images
+
+   ✓ Download complete!
+   ```
+
+   Images will be saved in `images/arena-influences/`.
 
 ## Troubleshooting
 

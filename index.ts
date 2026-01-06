@@ -20,15 +20,11 @@ interface ChannelResponse {
   contents: Block[];
 }
 
-const CHANNEL_SLUG = process.env.npm_config_channel || process.env.ARENA_CHANNEL_SLUG;
-const OUTPUT_FOLDER = `./images/${CHANNEL_SLUG}`;
 const ENV_FILE = path.join(process.cwd(), '.env');
 
 let accessToken = process.env.ARENA_ACCESS_TOKEN;
-
-if (!fs.existsSync(OUTPUT_FOLDER)) {
-  fs.mkdirSync(OUTPUT_FOLDER, { recursive: true });
-}
+let CHANNEL_SLUG = '';
+let OUTPUT_FOLDER = '';
 
 async function fetchChannelContent(slug: string, page: number = 1): Promise<ChannelResponse> {
   const url = `https://api.are.na/v2/channels/${slug}/contents?page=${page}`;
@@ -53,6 +49,24 @@ async function downloadImage(url: string, filename: string): Promise<void> {
 
   const filepath = path.join(OUTPUT_FOLDER, filename);
   fs.writeFileSync(filepath, response.data);
+}
+
+async function promptForChannelSlug(): Promise<string> {
+  const defaultSlug = process.env.ARENA_CHANNEL_SLUG;
+
+  const response = await prompts({
+    type: 'text',
+    name: 'slug',
+    message: 'Enter Are.na channel slug:',
+    initial: defaultSlug,
+    validate: (value: string) => value.length > 0 || 'Channel slug cannot be empty'
+  });
+
+  if (!response.slug) {
+    throw new Error('Channel input cancelled by user');
+  }
+
+  return response.slug.trim();
 }
 
 async function promptForToken(): Promise<string> {
@@ -98,17 +112,23 @@ async function downloadAllImages(): Promise<void> {
 
   console.log('Fetching channel contents...');
   let page = 1;
-  let hasMorePages = true;
   const allImageBlocks: Block[] = [];
 
-  while (hasMorePages) {
+  while (true) {
     process.stdout.write(`\rFetching page ${page}...`);
     const data = await fetchChannelContent(CHANNEL_SLUG!, page);
+
+    if (!data.contents || data.contents.length === 0) {
+      break;
+    }
 
     const imageBlocks = data.contents.filter(block => block.class === 'Image');
     allImageBlocks.push(...imageBlocks);
 
-    hasMorePages = data.contents.length > 0;
+    if (data.contents.length < 50) {
+      break;
+    }
+
     page++;
   }
 
@@ -144,6 +164,13 @@ async function downloadAllImages(): Promise<void> {
 
 async function main() {
   try {
+    CHANNEL_SLUG = await promptForChannelSlug();
+    OUTPUT_FOLDER = `./images/${CHANNEL_SLUG}`;
+
+    if (!fs.existsSync(OUTPUT_FOLDER)) {
+      fs.mkdirSync(OUTPUT_FOLDER, { recursive: true });
+    }
+
     await downloadAllImages();
   } catch (error) {
     const axiosError = error as AxiosError;
