@@ -3,6 +3,7 @@ import axios, { AxiosError } from 'axios';
 import fs from 'fs';
 import path from 'path';
 import prompts from 'prompts';
+import cliProgress from 'cli-progress';
 
 interface ImageData {
   original: {
@@ -93,34 +94,52 @@ function saveTokenToEnv(token: string): void {
 }
 
 async function downloadAllImages(): Promise<void> {
+  console.log(`Starting download from channel: ${CHANNEL_SLUG}\n`);
+
+  console.log('Fetching channel contents...');
   let page = 1;
   let hasMorePages = true;
-
-  console.log(`Starting download from channel: ${CHANNEL_SLUG}`);
+  const allImageBlocks: Block[] = [];
 
   while (hasMorePages) {
-    console.log(`Fetching page ${page}...`);
+    process.stdout.write(`\rFetching page ${page}...`);
     const data = await fetchChannelContent(CHANNEL_SLUG!, page);
 
     const imageBlocks = data.contents.filter(block => block.class === 'Image');
-
-    if (imageBlocks.length > 0) {
-      const downloadPromises = imageBlocks.map(async block => {
-        const imageUrl = block.image.original.url;
-        const filename = path.basename(new URL(imageUrl).pathname);
-
-        console.log(`Downloading: ${filename}`);
-        return downloadImage(imageUrl, filename);
-      });
-
-      await Promise.all(downloadPromises);
-    }
+    allImageBlocks.push(...imageBlocks);
 
     hasMorePages = data.contents.length > 0;
     page++;
   }
 
-  console.log('Download complete!');
+  console.log(`\nFound ${allImageBlocks.length} images\n`);
+
+  if (allImageBlocks.length === 0) {
+    console.log('No images to download.');
+    return;
+  }
+
+  const progressBar = new cliProgress.SingleBar({
+    format: 'Downloading |{bar}| {percentage}% | {value}/{total} images',
+    barCompleteChar: '\u2588',
+    barIncompleteChar: '\u2591',
+    hideCursor: true
+  });
+
+  progressBar.start(allImageBlocks.length, 0);
+
+  let completed = 0;
+  for (const block of allImageBlocks) {
+    const imageUrl = block.image.original.url;
+    const filename = path.basename(new URL(imageUrl).pathname);
+
+    await downloadImage(imageUrl, filename);
+    completed++;
+    progressBar.update(completed);
+  }
+
+  progressBar.stop();
+  console.log('\n✓ Download complete!');
 }
 
 async function main() {
