@@ -1,11 +1,18 @@
 # are.na.rchive
 
-Download all images from any public channel on Are.na.
+Download all images from any Are.na channel (public or private).
+
+## Features
+
+- Download all images from public Are.na channels
+- Interactive authentication for private channels
+- Automatic token storage for future downloads
+- Built with TypeScript
 
 ## Prerequisites
 
 1. **Node.js**: Ensure you have Node.js installed. You can download it from [nodejs.org](https://nodejs.org/).
-2. **Are.na API**: This script works with public channels on Are.na.
+2. **Are.na Account**: For private channels, you'll need an Are.na account and access token.
 
 ## Installation
 
@@ -22,13 +29,40 @@ Download all images from any public channel on Are.na.
    npm install
    ```
 
-3. Create a `.env` file in the root of the project to specify a default Are.na channel slug:
+3. (Optional) Create a `.env` file in the root of the project to specify a default Are.na channel slug:
 
    ```
    ARENA_CHANNEL_SLUG=your-default-channel-slug
    ```
 
    Replace `your-default-channel-slug` with the slug of the Are.na channel you want to download (e.g., `arena-influences`).
+
+## Authentication
+
+### Public Channels
+
+Public channels don't require authentication. Just run the download command.
+
+### Private Channels
+
+For private channels, the tool will automatically prompt you for authentication if needed:
+
+1. Run the download command
+2. If authentication is required, you'll be prompted to enter your Are.na access token
+3. Your token will be saved to `.env` for future downloads
+
+#### Getting an Access Token
+
+1. Log in to your Are.na account
+2. Visit [https://dev.are.na/oauth/applications](https://dev.are.na/oauth/applications)
+3. Create a new application or use an existing one
+4. Copy your access token
+
+You can also manually add your token to `.env`:
+
+```
+ARENA_ACCESS_TOKEN=your-access-token-here
+```
 
 ## Usage
 
@@ -52,7 +86,7 @@ Replace `custom-channel-slug` with the slug of the desired Are.na channel.
 
 ### Output
 
-The script will download all images from the specified Are.na channel and save them inside the `images` folder in the root of the project.
+The script will download all images from the specified Are.na channel and save them in `images/[channel-slug]/` in the root of the project.
 
 ## Example
 
@@ -79,8 +113,10 @@ The script will download all images from the specified Are.na channel and save t
 
 ## Troubleshooting
 
-- Ensure the channel slug is valid and corresponds to a public Are.na channel.
-- If no images are downloaded, verify the channel has image blocks.
+- **Authentication failed**: Make sure you're using a valid access token from [https://dev.are.na/oauth/applications](https://dev.are.na/oauth/applications)
+- **Channel not found**: Ensure the channel slug is valid and the channel exists
+- **Access denied**: You may not have permission to access a private channel, even with authentication
+- **No images downloaded**: Verify the channel contains image blocks
 
 ---
 
