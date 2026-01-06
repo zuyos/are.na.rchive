@@ -1,7 +1,22 @@
-require('dotenv').config();
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+import 'dotenv/config';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+
+interface ImageData {
+  original: {
+    url: string;
+  };
+}
+
+interface Block {
+  class: string;
+  image: ImageData;
+}
+
+interface ChannelResponse {
+  contents: Block[];
+}
 
 const CHANNEL_SLUG = process.env.npm_config_channel || process.env.ARENA_CHANNEL_SLUG;
 const OUTPUT_FOLDER = `./images/${CHANNEL_SLUG}`;
@@ -10,15 +25,15 @@ if (!fs.existsSync(OUTPUT_FOLDER)) {
   fs.mkdirSync(OUTPUT_FOLDER, { recursive: true });
 }
 
-async function fetchChannelContent(slug, page = 1) {
+async function fetchChannelContent(slug: string, page: number = 1): Promise<ChannelResponse> {
   const url = `https://api.are.na/v2/channels/${slug}/contents?page=${page}`;
   const headers = {};
 
-  const response = await axios.get(url, { headers });
+  const response = await axios.get<ChannelResponse>(url, { headers });
   return response.data;
 }
 
-async function downloadImage(url, filename) {
+async function downloadImage(url: string, filename: string): Promise<void> {
   const response = await axios.get(url, { responseType: 'stream' });
   const filepath = path.join(OUTPUT_FOLDER, filename);
 
@@ -31,7 +46,7 @@ async function downloadImage(url, filename) {
   });
 }
 
-async function downloadAllImages() {
+async function downloadAllImages(): Promise<void> {
   let page = 1;
   let hasMorePages = true;
 
@@ -39,7 +54,7 @@ async function downloadAllImages() {
 
   while (hasMorePages) {
     console.log(`Fetching page ${page}...`);
-    const data = await fetchChannelContent(CHANNEL_SLUG, page);
+    const data = await fetchChannelContent(CHANNEL_SLUG!, page);
 
     const imageBlocks = data.contents.filter(block => block.class === 'Image');
 
