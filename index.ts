@@ -21,6 +21,7 @@ interface ChannelResponse {
 }
 
 const ENV_FILE = path.join(process.cwd(), '.env');
+const CONCURRENT_DOWNLOADS = 5;
 
 let accessToken = process.env.ARENA_ACCESS_TOKEN;
 let CHANNEL_SLUG = '';
@@ -38,17 +39,74 @@ async function fetchChannelContent(slug: string, page: number = 1): Promise<Chan
   return response.data;
 }
 
-async function downloadImage(url: string, filename: string): Promise<void> {
-  const response = await axios.get(url, {
-    responseType: 'arraybuffer',
-    maxRedirects: 5,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-  });
-
+async function downloadImage(url: string, filename: string, retries: number = 3): Promise<boolean> {
   const filepath = path.join(OUTPUT_FOLDER, filename);
-  fs.writeFileSync(filepath, response.data);
+
+  if (fs.existsSync(filepath)) {
+    return true;
+  }
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        maxRedirects: 5,
+        timeout: 30000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Referer': 'https://www.are.na/'
+        }
+      });
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error('Empty response data');
+      }
+
+      fs.writeFileSync(filepath, response.data);
+      return true;
+    } catch (error) {
+      if (attempt === retries - 1) {
+        console.error(`\nFailed to download ${filename}: ${(error as Error).message}`);
+        return false;
+      }
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+    }
+  }
+  return false;
+}
+
+async function downloadWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  downloadFn: (item: T) => Promise<boolean>,
+  onProgress: (completed: number) => void
+): Promise<{ successful: number; failed: number }> {
+  let completed = 0;
+  let successful = 0;
+  let failed = 0;
+  const queue = [...items];
+
+  const worker = async () => {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (item) {
+        const success = await downloadFn(item);
+        if (success) {
+          successful++;
+        } else {
+          failed++;
+        }
+        completed++;
+        onProgress(completed);
+      }
+    }
+  };
+
+  const workers = Array(concurrency).fill(null).map(() => worker());
+  await Promise.all(workers);
+
+  return { successful, failed };
 }
 
 async function promptForChannelSlug(): Promise<string> {
@@ -115,21 +173,21 @@ async function downloadAllImages(): Promise<void> {
   const allImageBlocks: Block[] = [];
 
   while (true) {
-    process.stdout.write(`\rFetching page ${page}...`);
-    const data = await fetchChannelContent(CHANNEL_SLUG!, page);
+    try {
+      process.stdout.write(`\rFetching page ${page}...`);
+      const data = await fetchChannelContent(CHANNEL_SLUG!, page);
 
-    if (!data.contents || data.contents.length === 0) {
+      if (!data.contents || data.contents.length === 0) {
+        break;
+      }
+
+      const imageBlocks = data.contents.filter(block => block.class === 'Image');
+      allImageBlocks.push(...imageBlocks);
+
+      page++;
+    } catch (error) {
       break;
     }
-
-    const imageBlocks = data.contents.filter(block => block.image?.original?.url);
-    allImageBlocks.push(...imageBlocks);
-
-    if (data.contents.length < 20) {
-      break;
-    }
-
-    page++;
   }
 
   console.log(`\nFound ${allImageBlocks.length} images\n`);
@@ -137,6 +195,17 @@ async function downloadAllImages(): Promise<void> {
   if (allImageBlocks.length === 0) {
     console.log('No images to download.');
     return;
+  }
+
+  const existingCount = allImageBlocks.filter(block => {
+    const imageUrl = block.image!.original.url;
+    const filename = path.basename(new URL(imageUrl).pathname);
+    const filepath = path.join(OUTPUT_FOLDER, filename);
+    return fs.existsSync(filepath);
+  }).length;
+
+  if (existingCount > 0) {
+    console.log(`${existingCount} images already downloaded, ${allImageBlocks.length - existingCount} to download\n`);
   }
 
   const progressBar = new cliProgress.SingleBar({
@@ -148,18 +217,24 @@ async function downloadAllImages(): Promise<void> {
 
   progressBar.start(allImageBlocks.length, 0);
 
-  let completed = 0;
-  for (const block of allImageBlocks) {
-    const imageUrl = block.image!.original.url;
-    const filename = path.basename(new URL(imageUrl).pathname);
-
-    await downloadImage(imageUrl, filename);
-    completed++;
-    progressBar.update(completed);
-  }
+  const result = await downloadWithConcurrency(
+    allImageBlocks,
+    CONCURRENT_DOWNLOADS,
+    async (block) => {
+      const imageUrl = block.image!.original.url;
+      const filename = path.basename(new URL(imageUrl).pathname);
+      return await downloadImage(imageUrl, filename);
+    },
+    (completed) => progressBar.update(completed)
+  );
 
   progressBar.stop();
-  console.log('\n✓ Download complete!');
+
+  if (result.failed > 0) {
+    console.log(`\n✓ Download complete! ${result.successful} succeeded, ${result.failed} failed.`);
+  } else {
+    console.log('\n✓ Download complete!');
+  }
 }
 
 async function main() {
