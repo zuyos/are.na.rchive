@@ -13,7 +13,7 @@ interface ImageData {
 
 interface Block {
   class: string;
-  image: ImageData;
+  image?: ImageData;
 }
 
 interface ChannelResponse {
@@ -122,10 +122,10 @@ async function downloadAllImages(): Promise<void> {
       break;
     }
 
-    const imageBlocks = data.contents.filter(block => block.class === 'Image');
+    const imageBlocks = data.contents.filter(block => block.image?.original?.url);
     allImageBlocks.push(...imageBlocks);
 
-    if (data.contents.length < 50) {
+    if (data.contents.length < 20) {
       break;
     }
 
@@ -150,7 +150,7 @@ async function downloadAllImages(): Promise<void> {
 
   let completed = 0;
   for (const block of allImageBlocks) {
-    const imageUrl = block.image.original.url;
+    const imageUrl = block.image!.original.url;
     const filename = path.basename(new URL(imageUrl).pathname);
 
     await downloadImage(imageUrl, filename);
