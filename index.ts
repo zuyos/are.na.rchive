@@ -186,6 +186,10 @@ async function downloadAllImages(): Promise<void> {
 
       page++;
     } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response && (axiosError.response.status === 401 || axiosError.response.status === 403)) {
+        throw error;
+      }
       break;
     }
   }
